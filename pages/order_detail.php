@@ -392,7 +392,69 @@ require_once __DIR__ . '/../includes/header.php';
     </form>
 
     <?php else: ?>
-    <p class="text-sm text-gray-500 italic">No actions available for current status.</p>
+
+    <?php if ($status === 'Draft'): ?>
+    <!-- Admin viewing a Draft order owned by someone else -->
+    <div class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+      <i data-lucide="clock" class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500"></i>
+      <p>Waiting for <strong><?= htmlspecialchars($order['created_by_name'] ?? 'the employee') ?></strong>
+         to attach the Customer PO and submit this request.</p>
+    </div>
+
+    <?php elseif ($status === 'Requested'): ?>
+    <!-- Employee waiting for admin to mark as Ordered -->
+    <div class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+      <i data-lucide="clock" class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500"></i>
+      <p>Your request has been submitted with the Customer PO.
+         Waiting for admin to review and mark this order as <strong>Ordered</strong>.</p>
+    </div>
+
+    <?php elseif ($status === 'Ordered'): ?>
+    <!-- Employee waiting for admin to add tracking / invoice -->
+    <div class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+      <i data-lucide="clock" class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500"></i>
+      <p>Order has been placed with the supplier. Waiting for admin to enter the
+         supplier tracking number and upload the invoice to move to
+         <strong>In Transit (USA)</strong>.</p>
+    </div>
+
+    <?php elseif ($status === 'In Transit (USA)'): ?>
+    <!-- Admin waiting for employee to mark arrived -->
+    <div class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+      <i data-lucide="clock" class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500"></i>
+      <p>Shipment is in transit. Waiting for the employee to upload the forwarder document
+         and mark the package as <strong>Arrived at Forwarder</strong>.</p>
+    </div>
+
+    <?php elseif ($status === 'At Forwarder'): ?>
+    <!-- Admin waiting for employee to request ship-out -->
+    <div class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+      <i data-lucide="clock" class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500"></i>
+      <p>Package is at the forwarder. Waiting for the employee to request
+         <strong>Ship-Out</strong> when the shipment is ready to move to the local shop.</p>
+    </div>
+
+    <?php elseif ($status === 'Ship-Out Requested'): ?>
+    <?php if (isAdmin()): ?>
+    <!-- Admin: ship-out requested, coordinate delivery -->
+    <div class="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+      <i data-lucide="truck" class="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500"></i>
+      <p><strong>Ship-Out Requested</strong> — The employee has requested this shipment be
+         sent to the local shop. Please coordinate and arrange delivery.</p>
+    </div>
+    <?php else: ?>
+    <!-- Employee: awaiting final delivery -->
+    <div class="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+      <i data-lucide="check-circle" class="w-5 h-5 flex-shrink-0 mt-0.5 text-green-500"></i>
+      <p>Ship-Out has been requested. Admin has been notified and will coordinate
+         delivery to the local shop.</p>
+    </div>
+    <?php endif; ?>
+
+    <?php else: ?>
+    <p class="text-sm text-gray-500 italic">No actions available for this status.</p>
+    <?php endif; ?>
+
     <?php endif; ?>
   </div>
 

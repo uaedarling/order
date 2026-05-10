@@ -56,6 +56,8 @@ function navLink(string $href, string $icon, string $label, bool $active): strin
             $currentPage === 'estimator.php') ?>
       <?php if (isAdmin()): ?>
       <div class="pt-3 pb-1 px-4 text-xs font-semibold uppercase tracking-wider text-indigo-400">Admin</div>
+      <?= navLink(app_url('pages/users.php'), 'users', 'Users',
+            $currentPage === 'users.php') ?>
       <?= navLink(app_url('pages/brands.php'), 'building-2', 'Brands',
             $currentPage === 'brands.php') ?>
       <?= navLink(app_url('pages/settings.php'), 'settings', 'Settings',
