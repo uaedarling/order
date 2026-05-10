@@ -67,9 +67,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($uid === $selfId) {
             setFlash('error', 'You cannot delete your own account.');
         } else {
-            $cnt = $pdo->prepare('SELECT COUNT(*) FROM orders WHERE created_by = ?');
-            $cnt->execute([$uid]);
-            if ((int)$cnt->fetchColumn() > 0) {
+            $orderCountStmt = $pdo->prepare('SELECT COUNT(*) FROM orders WHERE created_by = ?');
+            $orderCountStmt->execute([$uid]);
+            if ((int)$orderCountStmt->fetchColumn() > 0) {
                 setFlash('error', 'Cannot delete a user who has existing orders.');
             } else {
                 $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$uid]);
@@ -173,14 +173,16 @@ require_once __DIR__ . '/../includes/header.php';
             <td class="px-6 py-3 text-gray-500"><?= date('d M Y', strtotime($u['created_at'])) ?></td>
             <td class="px-6 py-3">
               <div class="flex items-center gap-2">
-                <button onclick="openEdit(<?= (int)$u['id'] ?>, <?= htmlspecialchars(json_encode($u['role'])) ?>)"
+                <button data-uid="<?= (int)$u['id'] ?>"
+                        data-urole="<?= htmlspecialchars($u['role']) ?>"
+                        onclick="openEdit(this.dataset.uid, this.dataset.urole)"
                         class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors" title="Edit">
                   <i data-lucide="pencil" class="w-4 h-4"></i>
                 </button>
                 <?php if ((int)$u['id'] !== $selfId): ?>
                 <form method="POST"
-                      onsubmit="return confirm('Delete user &quot;<?= htmlspecialchars(addslashes($u['username'])) ?>&quot;? This cannot be undone.');"
-                      class="inline">
+                      data-username="<?= htmlspecialchars($u['username']) ?>"
+                      class="inline delete-user-form">
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
                   <button type="submit" class="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors" title="Delete">
@@ -244,8 +246,8 @@ require_once __DIR__ . '/../includes/header.php';
 
 <script>
 function openEdit(id, role) {
-  document.getElementById('edit-id').value    = id;
-  document.getElementById('edit-role').value  = role;
+  document.getElementById('edit-id').value   = id;
+  document.getElementById('edit-role').value = role;
   document.getElementById('edit-modal').classList.remove('hidden');
 }
 function closeEditModal() {
@@ -253,6 +255,14 @@ function closeEditModal() {
 }
 document.getElementById('edit-modal').addEventListener('click', function (e) {
   if (e.target === this) closeEditModal();
+});
+document.querySelectorAll('.delete-user-form').forEach(function (form) {
+  form.addEventListener('submit', function (e) {
+    var name = this.getAttribute('data-username');
+    if (!confirm('Delete user "' + name + '"? This cannot be undone.')) {
+      e.preventDefault();
+    }
+  });
 });
 </script>
 
