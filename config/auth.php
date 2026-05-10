@@ -10,7 +10,7 @@ if (session_status() === PHP_SESSION_NONE) {
 function requireLogin(): void
 {
     if (empty($_SESSION['user_id'])) {
-        header('Location: /login.php');
+        header('Location: ' . app_url('login.php'));
         exit;
     }
 }
@@ -25,7 +25,7 @@ function requireAdmin(): void
               <div class="text-center">
                 <p class="text-5xl font-bold text-red-600">403</p>
                 <p class="mt-2 text-xl text-gray-600">Access Denied</p>
-                <a href="/pages/dashboard.php" class="mt-4 inline-block px-4 py-2 bg-gray-600 text-white rounded">Go Back</a>
+                <a href="' . app_url('pages/dashboard.php') . '" class="mt-4 inline-block px-4 py-2 bg-gray-600 text-white rounded">Go Back</a>
               </div></div>';
         include __DIR__ . '/../includes/footer.php';
         exit;
