@@ -97,7 +97,7 @@ require_once __DIR__ . '/../includes/header.php';
 
     <div class="flex items-center justify-between mb-4">
       <p class="text-sm text-gray-500"><?= count($orders) ?> order<?= count($orders) !== 1 ? 's' : '' ?></p>
-      <a href="/pages/new_order.php"
+      <a href="<?= app_url('pages/new_order.php') ?>"
          class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors">
         <i data-lucide="plus" class="w-4 h-4"></i> New Order
       </a>
@@ -107,7 +107,7 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="text-center py-16 text-gray-400">
       <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3"></i>
       <p class="text-lg">No orders found</p>
-      <a href="/pages/new_order.php" class="mt-3 inline-block text-indigo-600 hover:underline text-sm">Create your first order →</a>
+      <a href="<?= app_url('pages/new_order.php') ?>" class="mt-3 inline-block text-indigo-600 hover:underline text-sm">Create your first order →</a>
     </div>
     <?php else: ?>
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -136,7 +136,7 @@ require_once __DIR__ . '/../includes/header.php';
               <td class="px-4 py-3"><?= statusBadge($o['status']) ?></td>
               <td class="px-4 py-3 text-gray-500 whitespace-nowrap"><?= date('d M Y', strtotime($o['created_at'])) ?></td>
               <td class="px-4 py-3">
-                <a href="/pages/order_detail.php?id=<?= (int)$o['id'] ?>"
+                <a href="<?= app_url('pages/order_detail.php') ?>?id=<?= (int)$o['id'] ?>"
                    class="text-indigo-600 hover:text-indigo-800 font-medium">View</a>
               </td>
             </tr>

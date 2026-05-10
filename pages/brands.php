@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    header('Location: /pages/brands.php');
+    header('Location: ' . app_url('pages/brands.php'));
     exit;
 }
 

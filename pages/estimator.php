@@ -150,6 +150,23 @@ require_once __DIR__ . '/../includes/header.php';
         </p>
       </div>
 
+      <!-- Create Order shortcut -->
+      <?php
+        $orderParams = http_build_query([
+            'brand_id'  => (int)($posted['brand_id']  ?? 0),
+            'price_usd' => (float)($posted['price_usd'] ?? 0),
+            'weight_kg' => (float)($posted['weight_kg'] ?? 0),
+            'dim_l'     => (float)($posted['dim_l']     ?? 0),
+            'dim_w'     => (float)($posted['dim_w']     ?? 0),
+            'dim_h'     => (float)($posted['dim_h']     ?? 0),
+        ]);
+      ?>
+      <a href="<?= app_url('pages/new_order.php') ?>?<?= $orderParams ?>"
+         class="flex items-center justify-center gap-2 w-full py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors">
+        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+        Create Order from This Estimate
+      </a>
+
       <!-- Weight table -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
         <h3 class="font-semibold text-gray-700 mb-3">Weight Details</h3>

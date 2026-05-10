@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    header('Location: /pages/settings.php');
+    header('Location: ' . app_url('pages/settings.php'));
     exit;
 }
 

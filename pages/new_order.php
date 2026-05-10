@@ -11,6 +11,9 @@ requireLogin();
 $pdo    = getPDO();
 $errors = [];
 
+// Support pre-filling from estimator via GET params
+$prefill = $_SERVER['REQUEST_METHOD'] === 'POST' ? $_POST : $_GET;
+
 // Load brands for dropdown
 $brands = $pdo->query('SELECT id, name, discount_percent FROM brands ORDER BY name')->fetchAll();
 
@@ -86,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             $orderId = $pdo->lastInsertId();
             setFlash('success', 'Order #' . $orderId . ' created as Draft.');
-            header('Location: /pages/order_detail.php?id=' . $orderId);
+            header('Location: ' . app_url('pages/order_detail.php') . '?id=' . $orderId);
             exit;
         }
     }
@@ -125,7 +128,7 @@ require_once __DIR__ . '/../includes/header.php';
           <?php foreach ($brands as $b): ?>
           <option value="<?= (int)$b['id'] ?>"
                   data-discount="<?= (float)$b['discount_percent'] ?>"
-                  <?= (isset($_POST['brand_id']) && (int)$_POST['brand_id'] === (int)$b['id']) ? 'selected' : '' ?>>
+                  <?= (isset($prefill['brand_id']) && (int)$prefill['brand_id'] === (int)$b['id']) ? 'selected' : '' ?>>
             <?= htmlspecialchars($b['name']) ?>
             (<?= number_format((float)$b['discount_percent'], 1) ?>% off)
           </option>
@@ -138,7 +141,7 @@ require_once __DIR__ . '/../includes/header.php';
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1" for="product_name">Product Name</label>
         <input type="text" id="product_name" name="product_name"
-               value="<?= htmlspecialchars($_POST['product_name'] ?? '') ?>"
+               value="<?= htmlspecialchars($prefill['product_name'] ?? '') ?>"
                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                placeholder="e.g. iPhone 15 Pro Max 256GB">
       </div>
@@ -151,7 +154,7 @@ require_once __DIR__ . '/../includes/header.php';
             <span class="text-gray-400 text-sm">$</span>
           </div>
           <input type="number" id="price_usd" name="price_usd" step="0.01" min="0.01" required
-                 value="<?= htmlspecialchars($_POST['price_usd'] ?? '') ?>"
+                 value="<?= htmlspecialchars($prefill['price_usd'] ?? '') ?>"
                  class="w-full pl-7 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                  placeholder="0.00">
         </div>
@@ -161,7 +164,7 @@ require_once __DIR__ . '/../includes/header.php';
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1" for="weight_kg">Weight (kg) *</label>
         <input type="number" id="weight_kg" name="weight_kg" step="0.01" min="0.01" required
-               value="<?= htmlspecialchars($_POST['weight_kg'] ?? '') ?>"
+               value="<?= htmlspecialchars($prefill['weight_kg'] ?? '') ?>"
                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                placeholder="0.00">
       </div>
@@ -171,15 +174,15 @@ require_once __DIR__ . '/../includes/header.php';
         <label class="block text-sm font-medium text-gray-700 mb-1">Dimensions (cm) — L × W × H *</label>
         <div class="grid grid-cols-3 gap-3">
           <input type="number" name="dim_l" step="0.1" min="0.1" required
-                 value="<?= htmlspecialchars($_POST['dim_l'] ?? '') ?>"
+                 value="<?= htmlspecialchars($prefill['dim_l'] ?? '') ?>"
                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                  placeholder="L">
           <input type="number" name="dim_w" step="0.1" min="0.1" required
-                 value="<?= htmlspecialchars($_POST['dim_w'] ?? '') ?>"
+                 value="<?= htmlspecialchars($prefill['dim_w'] ?? '') ?>"
                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                  placeholder="W">
           <input type="number" name="dim_h" step="0.1" min="0.1" required
-                 value="<?= htmlspecialchars($_POST['dim_h'] ?? '') ?>"
+                 value="<?= htmlspecialchars($prefill['dim_h'] ?? '') ?>"
                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                  placeholder="H">
         </div>
@@ -191,7 +194,7 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="grid grid-cols-2 gap-3">
           <label class="flex items-center gap-3 p-3 border border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50 transition-colors">
             <input type="radio" name="carrier" value="SelfShip PRO"
-                   <?= (($_POST['carrier'] ?? '') === 'SelfShip PRO') ? 'checked' : '' ?> class="text-indigo-600">
+                   <?= (($prefill['carrier'] ?? '') === 'SelfShip PRO') ? 'checked' : '' ?> class="text-indigo-600">
             <div>
               <div class="font-medium text-sm text-gray-800">SelfShip PRO</div>
               <div class="text-xs text-gray-500">Volume weight</div>
@@ -199,7 +202,7 @@ require_once __DIR__ . '/../includes/header.php';
           </label>
           <label class="flex items-center gap-3 p-3 border border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50 transition-colors">
             <input type="radio" name="carrier" value="Shop&Ship"
-                   <?= (($_POST['carrier'] ?? '') === 'Shop&Ship') ? 'checked' : '' ?> class="text-indigo-600">
+                   <?= (($prefill['carrier'] ?? '') === 'Shop&Ship') ? 'checked' : '' ?> class="text-indigo-600">
             <div>
               <div class="font-medium text-sm text-gray-800">Shop&amp;Ship</div>
               <div class="text-xs text-gray-500">Actual weight</div>
@@ -213,11 +216,11 @@ require_once __DIR__ . '/../includes/header.php';
         <label class="block text-sm font-medium text-gray-700 mb-1" for="notes">Notes (optional)</label>
         <textarea id="notes" name="notes" rows="3"
                   class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none"
-                  placeholder="Any special instructions..."><?= htmlspecialchars($_POST['notes'] ?? '') ?></textarea>
+                  placeholder="Any special instructions..."><?= htmlspecialchars($prefill['notes'] ?? '') ?></textarea>
       </div>
 
       <div class="flex gap-3 pt-2">
-        <a href="/pages/dashboard.php"
+        <a href="<?= app_url('pages/dashboard.php') ?>"
            class="flex-1 text-center py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
           Cancel
         </a>

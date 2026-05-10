@@ -25,7 +25,7 @@ $order = $stmt->fetch();
 
 if (!$order) {
     setFlash('error', 'Order not found.');
-    header('Location: /pages/dashboard.php');
+    header('Location: ' . app_url('pages/dashboard.php'));
     exit;
 }
 
@@ -126,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (RuntimeException $e) {
         setFlash('error', $e->getMessage());
     }
-    header('Location: /pages/order_detail.php?id=' . $id);
+    header('Location: ' . app_url('pages/order_detail.php') . '?id=' . $id);
     exit;
 }
 
@@ -174,7 +174,7 @@ require_once __DIR__ . '/../includes/header.php';
   <!-- Header row -->
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-3">
-      <a href="/pages/dashboard.php" class="text-gray-400 hover:text-gray-600">
+      <a href="<?= app_url('pages/dashboard.php') ?>" class="text-gray-400 hover:text-gray-600">
         <i data-lucide="arrow-left" class="w-5 h-5"></i>
       </a>
       <h2 class="text-xl font-bold text-gray-800">Order #<?= $id ?></h2>
@@ -301,7 +301,7 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="flex flex-wrap gap-3">
       <?php foreach ($docs as $doc): ?>
       <?php if ($doc['path']): ?>
-      <a href="/uploads/<?= htmlspecialchars($doc['path']) ?>" target="_blank"
+      <a href="<?= app_url('uploads/' . htmlspecialchars($doc['path'])) ?>" target="_blank"
          class="inline-flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm hover:bg-indigo-100 transition-colors">
         <i data-lucide="file" class="w-4 h-4"></i>
         <?= htmlspecialchars($doc['label']) ?>
