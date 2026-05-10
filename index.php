@@ -3,10 +3,13 @@
  * index.php — Redirect to login or dashboard.
  */
 require_once __DIR__ . '/config/auth.php';
+require_once __DIR__ . '/config/db.php';
+
+$base = getAppBaseUrl();
 
 if (!empty($_SESSION['user_id'])) {
-    header('Location: /pages/dashboard.php');
+    header('Location: ' . app_url('pages/dashboard.php'));
 } else {
-    header('Location: /login.php');
+    header('Location: ' . app_url('login.php'));
 }
 exit;

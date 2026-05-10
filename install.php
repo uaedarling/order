@@ -4,36 +4,37 @@
  * Visit this page once, then delete or restrict it.
  */
 
-// ── Safety: block re-run if lock file exists ──────────────────────────────
+require_once __DIR__ . '/config/db.php';
+
 $lockFile = __DIR__ . '/install.lock';
 if (file_exists($lockFile)) {
     die('<h2 style="font-family:sans-serif;color:#b91c1c">Already installed.<br>Delete <code>install.lock</code> to re-run.</h2>');
 }
 
-$host = $_ENV['DB_HOST'] ?? 'localhost';
-$db   = $_ENV['DB_NAME'] ?? 'order_erp';
-$user = $_ENV['DB_USER'] ?? 'root';
-$pass = $_ENV['DB_PASS'] ?? '';
+$host = env('DB_HOST', 'localhost');
+$db   = env('DB_NAME', 'order_erp');
+$user = env('DB_USER');
+$pass = env('DB_PASS', '');
+
+if (!$user) {
+    die('Missing DB environment variables. Set DB_USER (and ideally DB_HOST, DB_NAME, DB_PASS) before running install.php.');
+}
 
 try {
-    // Connect without selecting a database first so we can create it
     $pdo = new PDO("mysql:host=$host;charset=utf8mb4", $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     $pdo->exec("CREATE DATABASE IF NOT EXISTS `$db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
     $pdo->exec("USE `$db`");
 
-    // Run schema
     $sql = file_get_contents(__DIR__ . '/schema.sql');
     $pdo->exec($sql);
 
-    // Create default admin (password: admin123)
     $hash = password_hash('admin123', PASSWORD_DEFAULT);
     $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, role) VALUES ('admin', ?, 'admin')
                            ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash), role = 'admin'");
     $stmt->execute([$hash]);
 
-    // Create lock file
     file_put_contents($lockFile, date('Y-m-d H:i:s'));
 
     echo '<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -48,7 +49,7 @@ code{background:#f3f4f6;padding:.1rem .3rem;border-radius:.25rem}</style></head>
    Password: <code>admin123</code></p>
 <div class="warn">⚠️ <strong>Security warning:</strong> Change the admin password immediately after logging in.
 An <code>install.lock</code> file has been created to prevent re-installation.</div>
-<p><a href="/login.php">→ Go to Login</a></p>
+<p><a href="' . htmlspecialchars(app_url('login.php')) . '">→ Go to Login</a></p>
 </body></html>';
 } catch (PDOException $e) {
     http_response_code(500);
