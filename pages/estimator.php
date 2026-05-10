@@ -153,12 +153,12 @@ require_once __DIR__ . '/../includes/header.php';
       <!-- Create Order shortcut -->
       <?php
         $orderParams = http_build_query([
-            'brand_id'  => $posted['brand_id']  ?? '',
-            'price_usd' => $posted['price_usd'] ?? '',
-            'weight_kg' => $posted['weight_kg'] ?? '',
-            'dim_l'     => $posted['dim_l']     ?? '',
-            'dim_w'     => $posted['dim_w']     ?? '',
-            'dim_h'     => $posted['dim_h']     ?? '',
+            'brand_id'  => (int)($posted['brand_id']  ?? 0),
+            'price_usd' => (float)($posted['price_usd'] ?? 0),
+            'weight_kg' => (float)($posted['weight_kg'] ?? 0),
+            'dim_l'     => (float)($posted['dim_l']     ?? 0),
+            'dim_w'     => (float)($posted['dim_w']     ?? 0),
+            'dim_h'     => (float)($posted['dim_h']     ?? 0),
         ]);
       ?>
       <a href="<?= app_url('pages/new_order.php') ?>?<?= $orderParams ?>"

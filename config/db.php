@@ -47,11 +47,11 @@ function getAppBaseUrl(): string
     if ($base !== null) return $base;
 
     // config/db.php lives at [app_root]/config/db.php, so dirname(__DIR__) is the app root on disk.
-    $appRootFs = str_replace('\\', '/', dirname(__DIR__));
-    $scriptFs  = str_replace('\\', '/', $_SERVER['SCRIPT_FILENAME'] ?? '');
+    $appRootFs = str_replace('\\', '/', (string)(realpath(dirname(__DIR__)) ?: dirname(__DIR__)));
+    $scriptFs  = str_replace('\\', '/', (string)(realpath($_SERVER['SCRIPT_FILENAME'] ?? '') ?: ($_SERVER['SCRIPT_FILENAME'] ?? '')));
     $scriptUrl = str_replace('\\', '/', $_SERVER['SCRIPT_NAME']     ?? '');
 
-    if ($scriptFs !== '' && $scriptUrl !== '' && strpos($scriptFs, $appRootFs) === 0) {
+    if ($scriptFs !== '' && $scriptUrl !== '' && str_starts_with($scriptFs, $appRootFs . '/')) {
         // Path of the script relative to the app root (e.g. "pages/dashboard.php")
         $relScript = ltrim(substr($scriptFs, strlen($appRootFs)), '/');
         // Strip that suffix from the URL to obtain the app base URL
