@@ -36,7 +36,6 @@ function navLink(string $href, string $icon, string $label, bool $active): strin
 </head>
 <body class="h-full bg-gray-50 font-sans">
 
-<?php $baseUrl = getAppBaseUrl(); ?>
 <div class="flex h-full min-h-screen">
 
   <aside id="sidebar"
