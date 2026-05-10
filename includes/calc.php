@@ -3,7 +3,7 @@
  * includes/calc.php — All calculation functions (PHP port of the JS logic).
  */
 
-const USD_TO_AED = 3.699;
+const USD_TO_AED = 3.6725;
 
 // ── Weight computation ────────────────────────────────────────────────────
 
@@ -97,19 +97,20 @@ function computeFullResults(
     float $l,
     float $w,
     float $h,
-    ?array $snsAnchors = null
+    ?array $snsAnchors = null,
+    float $usdToAed = USD_TO_AED
 ): array {
     $weights    = computeWeights($actualKg, $l, $w, $h);
     $selfLimits = checkSelfShipLimits($actualKg, $l, $w, $h);
 
     $discountAmountUSD  = $priceUSD * ($discountPercent / 100);
-    $discountedPriceAED = ($priceUSD - $discountAmountUSD) * USD_TO_AED;
+    $discountedPriceAED = ($priceUSD - $discountAmountUSD) * $usdToAed;
 
     // SelfShip PRO
     $selfShip = ['eligible' => $selfLimits['ok'], 'reasons' => $selfLimits['reasons']];
     if ($selfLimits['ok']) {
         $shippingUSD = calculatePROShipping((float) $weights['chargeableSelfKg']);
-        $shippingAED = $shippingUSD * USD_TO_AED;
+        $shippingAED = $shippingUSD * $usdToAed;
         $vat         = ($discountedPriceAED + $shippingAED) * 0.05;
         $customs     = $discountedPriceAED > 1000 ? $discountedPriceAED * 0.05 : 0.0;
         $total       = $discountedPriceAED + $shippingAED + $vat + $customs;

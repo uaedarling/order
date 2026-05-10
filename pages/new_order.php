@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $snsJson    = $pdo->query("SELECT value FROM settings WHERE `key`='sns_anchors'")->fetchColumn();
         $snsAnchors = $snsJson ? json_decode($snsJson, true) : null;
 
-        $results = computeFullResults($priceUSD, $discountPct, $weight, $l, $w, $h, $snsAnchors);
+        $results = computeFullResults($priceUSD, $discountPct, $weight, $l, $w, $h, $snsAnchors, $usdToAed);
 
         // Validate carrier eligibility
         if ($carrier === 'SelfShip PRO' && !$results['selfShip']['eligible']) {
