@@ -48,7 +48,7 @@ function handleUpload(string $field, string $prefix): ?string
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mime  = $finfo->file($file['tmp_name']);
     if (!in_array($mime, $ALLOWED_UPLOAD_TYPES, true)) {
-        throw new RuntimeException('Invalid file type. Only PDF, JPEG, PNG allowed.');
+        throw new RuntimeException('Invalid file type. Only PDF, JPEG, PNG, GIF, and WebP allowed.');
     }
     $ext  = match($mime) {
         'application/pdf' => 'pdf',

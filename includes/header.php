@@ -100,8 +100,10 @@ function navLink(string $href, string $icon, string $label, bool $active): strin
       <?php
         // Admin badge: count Ship-Out Requested orders
         try {
-            $pdo = getPDO();
-            $n = $pdo->query("SELECT COUNT(*) FROM orders WHERE status='Ship-Out Requested'")->fetchColumn();
+            $pdo  = getPDO();
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM orders WHERE status = ?");
+            $stmt->execute(['Ship-Out Requested']);
+            $n = $stmt->fetchColumn();
         } catch (Throwable) { $n = 0; }
         if ($n > 0):
       ?>
