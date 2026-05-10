@@ -19,19 +19,23 @@ $stages = [
 ];
 
 $params = [];
-$where = '';
-if (!isAdmin()) {
-    $where = 'WHERE o.created_by = ?';
+if (isAdmin()) {
+    $stmt = $pdo->prepare("
+        SELECT o.id, o.status, o.product_name, o.total_aed, b.name AS brand_name
+        FROM orders o
+        LEFT JOIN brands b ON b.id = o.brand_id
+        ORDER BY o.updated_at DESC
+    ");
+} else {
+    $stmt = $pdo->prepare("
+        SELECT o.id, o.status, o.product_name, o.total_aed, b.name AS brand_name
+        FROM orders o
+        LEFT JOIN brands b ON b.id = o.brand_id
+        WHERE o.created_by = ?
+        ORDER BY o.updated_at DESC
+    ");
     $params[] = $user['id'];
 }
-
-$stmt = $pdo->prepare("
-    SELECT o.id, o.status, o.product_name, o.total_aed, b.name AS brand_name
-    FROM orders o
-    LEFT JOIN brands b ON b.id = o.brand_id
-    $where
-    ORDER BY o.updated_at DESC
-");
 $stmt->execute($params);
 $orders = $stmt->fetchAll();
 
