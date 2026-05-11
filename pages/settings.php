@@ -9,16 +9,17 @@ requireAdmin();
 
 $pdo = getPDO();
 
+function saveSmtpSettings(PDO $pdo, array $values): void
+{
+    $stmt = $pdo->prepare("INSERT INTO settings (`key`, value) VALUES (?, ?)
+                           ON DUPLICATE KEY UPDATE value = ?");
+    foreach ($values as $key => $value) {
+        $stmt->execute([$key, $value, $value]);
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-
-    $saveSmtpSettings = static function (PDO $pdo, array $values): void {
-        $stmt = $pdo->prepare("INSERT INTO settings (`key`, value) VALUES (?, ?)
-                               ON DUPLICATE KEY UPDATE value = VALUES(value)");
-        foreach ($values as $key => $value) {
-            $stmt->execute([$key, $value]);
-        }
-    };
 
     if ($action === 'save_rate') {
         $rate = (float)($_POST['usd_to_aed'] ?? 0);
@@ -78,8 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: ' . app_url('pages/settings.php'));
             exit;
         }
+        if ($smtpPass === '') {
+            $smtpPass = (string)($pdo->query("SELECT value FROM settings WHERE `key`='smtp_pass'")->fetchColumn() ?: '');
+        }
 
-        $saveSmtpSettings($pdo, [
+        saveSmtpSettings($pdo, [
             'smtp_enabled' => $smtpEnabled,
             'smtp_host' => $smtpHost,
             'smtp_port' => (string)$smtpPort,
@@ -119,14 +123,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $usdToAed = $pdo->query("SELECT value FROM settings WHERE `key`='usd_to_aed'")->fetchColumn() ?: '3.6725';
 $snsJson  = $pdo->query("SELECT value FROM settings WHERE `key`='sns_anchors'")->fetchColumn();
 $anchors  = $snsJson ? json_decode($snsJson, true) : [];
-$smtpEnabled   = $pdo->query("SELECT value FROM settings WHERE `key`='smtp_enabled'")->fetchColumn() ?: '0';
-$smtpHost      = $pdo->query("SELECT value FROM settings WHERE `key`='smtp_host'")->fetchColumn() ?: '';
-$smtpPort      = $pdo->query("SELECT value FROM settings WHERE `key`='smtp_port'")->fetchColumn() ?: '587';
-$smtpEnc       = $pdo->query("SELECT value FROM settings WHERE `key`='smtp_encryption'")->fetchColumn() ?: 'tls';
-$smtpUser      = $pdo->query("SELECT value FROM settings WHERE `key`='smtp_user'")->fetchColumn() ?: '';
-$smtpPass      = $pdo->query("SELECT value FROM settings WHERE `key`='smtp_pass'")->fetchColumn() ?: '';
-$smtpFromName  = $pdo->query("SELECT value FROM settings WHERE `key`='smtp_from_name'")->fetchColumn() ?: 'ProcureERP';
-$smtpFromEmail = $pdo->query("SELECT value FROM settings WHERE `key`='smtp_from_email'")->fetchColumn() ?: '';
+$smtpDefaults = [
+    'smtp_enabled' => '0',
+    'smtp_host' => '',
+    'smtp_port' => '587',
+    'smtp_encryption' => 'tls',
+    'smtp_user' => '',
+    'smtp_pass' => '',
+    'smtp_from_name' => 'ProcureERP',
+    'smtp_from_email' => '',
+];
+$smtpStmt = $pdo->query("SELECT `key`, value FROM settings WHERE `key` IN ('smtp_enabled','smtp_host','smtp_port','smtp_encryption','smtp_user','smtp_pass','smtp_from_name','smtp_from_email')");
+foreach (($smtpStmt ? $smtpStmt->fetchAll() : []) as $row) {
+    if (isset($smtpDefaults[$row['key']])) {
+        $smtpDefaults[$row['key']] = (string)$row['value'];
+    }
+}
+$smtpEnabled   = $smtpDefaults['smtp_enabled'];
+$smtpHost      = $smtpDefaults['smtp_host'];
+$smtpPort      = $smtpDefaults['smtp_port'];
+$smtpEnc       = $smtpDefaults['smtp_encryption'];
+$smtpUser      = $smtpDefaults['smtp_user'];
+$smtpPassSet   = $smtpDefaults['smtp_pass'] !== '';
+$smtpFromName  = $smtpDefaults['smtp_from_name'];
+$smtpFromEmail = $smtpDefaults['smtp_from_email'];
 
 $pageTitle = 'Settings';
 require_once __DIR__ . '/../includes/header.php';
@@ -261,13 +281,18 @@ require_once __DIR__ . '/../includes/header.php';
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
           <div class="relative">
-            <input type="password" id="smtp-pass" name="smtp_pass" value="<?= htmlspecialchars($smtpPass) ?>"
+            <input type="password" id="smtp-pass" name="smtp_pass"
+                   aria-describedby="smtp-pass-help"
+                   placeholder="<?= $smtpPassSet ? '•••••••• (leave blank to keep existing password)' : '' ?>"
                    class="w-full px-3 py-2.5 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
             <button type="button" onclick="toggleSmtpPassword()" class="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700" aria-label="Toggle password visibility">
               <i data-lucide="eye" id="smtp-pass-eye-open" class="w-4 h-4"></i>
               <i data-lucide="eye-off" id="smtp-pass-eye-closed" class="w-4 h-4 hidden"></i>
             </button>
           </div>
+          <p id="smtp-pass-help" class="mt-1 text-xs text-gray-500">
+            <?= $smtpPassSet ? 'Leave blank to keep the existing SMTP password.' : 'Set the SMTP password used for authentication.' ?>
+          </p>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">From Name</label>

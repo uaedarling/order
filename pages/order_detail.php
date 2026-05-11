@@ -125,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ->execute([$path, $id]);
                 $notifyOrder = $order;
                 $notifyOrder['status'] = 'At Forwarder';
-                notifyAdminAtForwarder($notifyOrder, (string)($order['created_by_name'] ?? 'Employee'));
+                notifyAdminAtForwarder($notifyOrder, (string)($order['created_by_name'] ?? 'Unknown Employee'));
                 setFlash('success', 'Order marked as At Forwarder.');
                 break;
 
@@ -136,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ->execute([$id]);
                 $notifyOrder = $order;
                 $notifyOrder['status'] = 'Ship-Out Requested';
-                notifyAdminShipOutRequested($notifyOrder, (string)($order['created_by_name'] ?? 'Employee'));
+                notifyAdminShipOutRequested($notifyOrder, (string)($order['created_by_name'] ?? 'Unknown Employee'));
                 setFlash('success', 'Ship-Out requested. Admin has been notified.');
                 break;
 

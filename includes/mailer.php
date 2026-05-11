@@ -4,6 +4,9 @@
  */
 require_once __DIR__ . '/../config/db.php';
 
+const SMTP_CONNECT_TIMEOUT = 10;
+const SMTP_STREAM_TIMEOUT = 15;
+
 function sendMail(string $to, string $subject, string $bodyHtml, string $bodyText = ''): bool
 {
     try {
@@ -85,6 +88,12 @@ function buildMultipartMessage(string $fromName, string $fromEmail, string $to, 
     $boundary  = 'b1_' . bin2hex(random_bytes(12));
     $safeSubj  = '=?UTF-8?B?' . base64_encode($subject) . '?=';
     $safeFrom  = '=?UTF-8?B?' . base64_encode($fromName) . '?= <' . $fromEmail . '>';
+    $msgToken  = bin2hex(random_bytes(16));
+    $msgDomain = 'localhost';
+    if (str_contains($fromEmail, '@')) {
+        $msgDomain = (string)substr(strrchr($fromEmail, '@'), 1);
+    }
+    $msgDomain = preg_replace('/[^a-z0-9\.\-]/i', '', $msgDomain) ?: 'localhost';
     $headers   = [
         'From: ' . $safeFrom,
         'To: <' . $to . '>',
@@ -92,7 +101,7 @@ function buildMultipartMessage(string $fromName, string $fromEmail, string $to, 
         'MIME-Version: 1.0',
         'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
         'Date: ' . date(DATE_RFC2822),
-        'Message-ID: <' . uniqid('procureerp_', true) . '@' . preg_replace('/[^a-z0-9\.\-]/i', '', ($_SERVER['HTTP_HOST'] ?? 'localhost')) . '>',
+        'Message-ID: <' . $msgToken . '@' . $msgDomain . '>',
     ];
 
     $body = '--' . $boundary . "\r\n"
@@ -122,13 +131,13 @@ function sendViaSmtp(array $mime, array $settings): bool
     }
 
     $connectHost = ($encryption === 'ssl' || $port === 465) ? ('ssl://' . $host) : $host;
-    $socket = @fsockopen($connectHost, $port, $errno, $errstr, 10);
+    $socket = fsockopen($connectHost, $port, $errno, $errstr, SMTP_CONNECT_TIMEOUT);
     if (!$socket) {
         error_log('SMTP connect failed: ' . $errstr . ' (' . $errno . ')');
         return false;
     }
 
-    stream_set_timeout($socket, 15);
+    stream_set_timeout($socket, SMTP_STREAM_TIMEOUT);
 
     try {
         smtpExpect($socket, [220]);
@@ -136,7 +145,13 @@ function sendViaSmtp(array $mime, array $settings): bool
 
         if ($encryption === 'tls' || ($encryption !== 'ssl' && $port === 587)) {
             smtpCommand($socket, 'STARTTLS', [220]);
-            if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+            $cryptoMethod = STREAM_CRYPTO_METHOD_TLS_CLIENT;
+            if (defined('STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT') && defined('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT')) {
+                $cryptoMethod = STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT;
+            } elseif (defined('STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT')) {
+                $cryptoMethod = STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT;
+            }
+            if (!stream_socket_enable_crypto($socket, true, $cryptoMethod)) {
                 throw new RuntimeException('Unable to enable TLS for SMTP connection.');
             }
             smtpCommand($socket, 'EHLO procureerp.local', [250]);
@@ -153,7 +168,8 @@ function sendViaSmtp(array $mime, array $settings): bool
         smtpCommand($socket, 'DATA', [354]);
 
         $payload = implode("\r\n", $mime['headers']) . "\r\n\r\n" . $mime['body'];
-        $payload = preg_replace('/\r?\n\./', "\r\n..", $payload);
+        // SMTP dot-stuffing (RFC 5321): `/^\./m` matches "." at the start of any DATA line and replaces it with ".." to avoid premature DATA termination.
+        $payload = preg_replace('/^\./m', '..', $payload);
         fwrite($socket, $payload . "\r\n.\r\n");
         smtpExpect($socket, [250]);
 
