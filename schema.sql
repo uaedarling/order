@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT NOT NULL
 );
 
-INSERT INTO settings (`key`, value) VALUES ('usd_to_aed', '3.699')
+INSERT INTO settings (`key`, value) VALUES ('usd_to_aed', '3.6725')
     ON DUPLICATE KEY UPDATE value = value;
 INSERT INTO settings (`key`, value) VALUES ('sns_anchors', '[{"u":10,"p":60},{"u":12,"p":70},{"u":20,"p":110},{"u":30,"p":160},{"u":50,"p":232},{"u":58,"p":268},{"u":100,"p":412},{"u":150,"p":592},{"u":200,"p":772},{"u":300,"p":1132},{"u":400,"p":1492},{"u":500,"p":1852}]')
     ON DUPLICATE KEY UPDATE value = value;

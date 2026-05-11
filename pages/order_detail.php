@@ -135,6 +135,7 @@ $stmt->execute([$id]);
 $order = $stmt->fetch();
 
 // Recompute both carriers for comparison
+$usdToAed   = (float)($pdo->query("SELECT value FROM settings WHERE `key`='usd_to_aed'")->fetchColumn() ?: USD_TO_AED);
 $snsJson    = $pdo->query("SELECT value FROM settings WHERE `key`='sns_anchors'")->fetchColumn();
 $snsAnchors = $snsJson ? json_decode($snsJson, true) : null;
 $results    = computeFullResults(
@@ -144,7 +145,8 @@ $results    = computeFullResults(
     (float)$order['dim_length'],
     (float)$order['dim_width'],
     (float)$order['dim_height'],
-    $snsAnchors
+    $snsAnchors,
+    $usdToAed
 );
 
 // Status badge

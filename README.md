@@ -109,6 +109,7 @@ includes/
   footer.php            → Closing HTML + JS
 pages/
   dashboard.php         → Order list (All / Pending / Archive)
+  pipeline.php          → Visual 6-stage Kanban pipeline
   new_order.php         → Create new order (Draft)
   order_detail.php      → Order detail + state-machine actions
   brands.php            → Admin: CRUD for brands & discounts

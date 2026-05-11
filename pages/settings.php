@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Load current values
-$usdToAed = $pdo->query("SELECT value FROM settings WHERE `key`='usd_to_aed'")->fetchColumn() ?: '3.699';
+$usdToAed = $pdo->query("SELECT value FROM settings WHERE `key`='usd_to_aed'")->fetchColumn() ?: '3.6725';
 $snsJson  = $pdo->query("SELECT value FROM settings WHERE `key`='sns_anchors'")->fetchColumn();
 $anchors  = $snsJson ? json_decode($snsJson, true) : [];
 

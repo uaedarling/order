@@ -50,6 +50,8 @@ function navLink(string $href, string $icon, string $label, bool $active): strin
     <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
       <?= navLink(app_url('pages/dashboard.php'), 'layout-dashboard', 'Dashboard',
             $currentPage === 'dashboard.php') ?>
+      <?= navLink(app_url('pages/pipeline.php'), 'columns-3', 'Pipeline',
+            $currentPage === 'pipeline.php') ?>
       <?= navLink(app_url('pages/new_order.php'), 'plus-circle', 'New Order',
             $currentPage === 'new_order.php') ?>
       <?= navLink(app_url('pages/estimator.php'), 'calculator', 'Estimator',

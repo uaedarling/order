@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $br = $bs->fetch();
             if ($br) $discountPct = (float)$br['discount_percent'];
         }
-        $results = computeFullResults($priceUSD, $discountPct, $weight, $l, $w, $h, $snsAnchors);
+        $results = computeFullResults($priceUSD, $discountPct, $weight, $l, $w, $h, $snsAnchors, $usdToAed);
     }
 }
 
