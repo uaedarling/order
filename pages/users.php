@@ -15,19 +15,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'add') {
         $username = trim($_POST['username'] ?? '');
+        $email    = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
         $role     = $_POST['role'] ?? 'employee';
 
         if ($username === '') {
             setFlash('error', 'Username is required.');
+        } elseif ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            setFlash('error', 'Please enter a valid email address.');
         } elseif (strlen($password) < 6) {
             setFlash('error', 'Password must be at least 6 characters.');
         } elseif (!in_array($role, ['admin', 'employee'], true)) {
             setFlash('error', 'Invalid role selected.');
         } else {
             try {
-                $pdo->prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)')
-                    ->execute([$username, password_hash($password, PASSWORD_DEFAULT), $role]);
+                $pdo->prepare('INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)')
+                    ->execute([$username, $email ?: null, password_hash($password, PASSWORD_DEFAULT), $role]);
                 setFlash('success', "User \"" . htmlspecialchars($username) . "\" created successfully.");
             } catch (PDOException $e) {
                 if ($e->getCode() === '23000') {
@@ -40,11 +43,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } elseif ($action === 'edit') {
         $uid      = (int)($_POST['id'] ?? 0);
+        $email    = trim($_POST['email'] ?? '');
         $role     = $_POST['role'] ?? '';
         $password = $_POST['password'] ?? '';
 
         if ($uid <= 0 || !in_array($role, ['admin', 'employee'], true)) {
             setFlash('error', 'Invalid input.');
+        } elseif ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            setFlash('error', 'Please enter a valid email address.');
         } else {
             if ($password !== '') {
                 if (strlen($password) < 6) {
@@ -52,11 +58,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     header('Location: ' . app_url('pages/users.php'));
                     exit;
                 }
-                $pdo->prepare('UPDATE users SET role=?, password_hash=? WHERE id=?')
-                    ->execute([$role, password_hash($password, PASSWORD_DEFAULT), $uid]);
+                $pdo->prepare('UPDATE users SET email=?, role=?, password_hash=? WHERE id=?')
+                    ->execute([$email ?: null, $role, password_hash($password, PASSWORD_DEFAULT), $uid]);
             } else {
-                $pdo->prepare('UPDATE users SET role=? WHERE id=?')
-                    ->execute([$role, $uid]);
+                $pdo->prepare('UPDATE users SET email=?, role=? WHERE id=?')
+                    ->execute([$email ?: null, $role, $uid]);
             }
             setFlash('success', 'User updated successfully.');
         }
@@ -83,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $users = $pdo->query(
-    'SELECT id, username, role, created_at FROM users ORDER BY role DESC, username ASC'
+    'SELECT id, username, email, role, created_at FROM users ORDER BY role DESC, username ASC'
 )->fetchAll();
 
 $pageTitle = 'User Management';
@@ -106,6 +112,12 @@ require_once __DIR__ . '/../includes/header.php';
           <input type="text" name="username" required autocomplete="off"
                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                  placeholder="e.g. john.doe">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <input type="email" name="email" autocomplete="off"
+                 class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                 placeholder="e.g. john@company.com">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Password * <span class="font-normal text-gray-400">(min 6 chars)</span></label>
@@ -149,6 +161,7 @@ require_once __DIR__ . '/../includes/header.php';
           <tr>
             <th class="px-6 py-3 text-left font-semibold text-gray-600">#</th>
             <th class="px-6 py-3 text-left font-semibold text-gray-600">Username</th>
+            <th class="px-6 py-3 text-left font-semibold text-gray-600">Email</th>
             <th class="px-6 py-3 text-left font-semibold text-gray-600">Role</th>
             <th class="px-6 py-3 text-left font-semibold text-gray-600">Created</th>
             <th class="px-6 py-3"></th>
@@ -164,6 +177,7 @@ require_once __DIR__ . '/../includes/header.php';
               <span class="ml-2 text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">You</span>
               <?php endif; ?>
             </td>
+            <td class="px-6 py-3 text-gray-600"><?= htmlspecialchars($u['email'] ?: '—') ?></td>
             <td class="px-6 py-3">
               <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
                            <?= $u['role'] === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-green-100 text-green-700' ?>">
@@ -175,7 +189,8 @@ require_once __DIR__ . '/../includes/header.php';
               <div class="flex items-center gap-2">
                 <button data-uid="<?= (int)$u['id'] ?>"
                         data-urole="<?= htmlspecialchars($u['role']) ?>"
-                        onclick="openEdit(this.dataset.uid, this.dataset.urole)"
+                        data-uemail="<?= htmlspecialchars((string)($u['email'] ?? '')) ?>"
+                        onclick="openEdit(this.dataset.uid, this.dataset.urole, this.dataset.uemail)"
                         class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors" title="Edit">
                   <i data-lucide="pencil" class="w-4 h-4"></i>
                 </button>
@@ -214,6 +229,12 @@ require_once __DIR__ . '/../includes/header.php';
       <input type="hidden" name="action" value="edit">
       <input type="hidden" name="id" id="edit-id">
       <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+        <input type="email" name="email" id="edit-email"
+               class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+               placeholder="e.g. john@company.com">
+      </div>
+      <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
         <select name="role" id="edit-role"
                 class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white">
@@ -245,9 +266,10 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
-function openEdit(id, role) {
-  document.getElementById('edit-id').value   = id;
-  document.getElementById('edit-role').value = role;
+function openEdit(id, role, email) {
+  document.getElementById('edit-id').value    = id;
+  document.getElementById('edit-email').value = email || '';
+  document.getElementById('edit-role').value  = role;
   document.getElementById('edit-modal').classList.remove('hidden');
 }
 function closeEditModal() {

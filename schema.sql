@@ -10,6 +10,22 @@ INSERT INTO settings (`key`, value) VALUES ('usd_to_aed', '3.6725')
     ON DUPLICATE KEY UPDATE value = value;
 INSERT INTO settings (`key`, value) VALUES ('sns_anchors', '[{"u":10,"p":60},{"u":12,"p":70},{"u":20,"p":110},{"u":30,"p":160},{"u":50,"p":232},{"u":58,"p":268},{"u":100,"p":412},{"u":150,"p":592},{"u":200,"p":772},{"u":300,"p":1132},{"u":400,"p":1492},{"u":500,"p":1852}]')
     ON DUPLICATE KEY UPDATE value = value;
+INSERT INTO settings (`key`, value) VALUES ('smtp_enabled', '0')
+    ON DUPLICATE KEY UPDATE value = value;
+INSERT INTO settings (`key`, value) VALUES ('smtp_host', '')
+    ON DUPLICATE KEY UPDATE value = value;
+INSERT INTO settings (`key`, value) VALUES ('smtp_port', '587')
+    ON DUPLICATE KEY UPDATE value = value;
+INSERT INTO settings (`key`, value) VALUES ('smtp_encryption', 'tls')
+    ON DUPLICATE KEY UPDATE value = value;
+INSERT INTO settings (`key`, value) VALUES ('smtp_user', '')
+    ON DUPLICATE KEY UPDATE value = value;
+INSERT INTO settings (`key`, value) VALUES ('smtp_pass', '')
+    ON DUPLICATE KEY UPDATE value = value;
+INSERT INTO settings (`key`, value) VALUES ('smtp_from_name', 'ProcureERP')
+    ON DUPLICATE KEY UPDATE value = value;
+INSERT INTO settings (`key`, value) VALUES ('smtp_from_email', '')
+    ON DUPLICATE KEY UPDATE value = value;
 
 CREATE TABLE IF NOT EXISTS brands (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -25,6 +41,8 @@ CREATE TABLE IF NOT EXISTS users (
     role ENUM('admin','employee') DEFAULT 'employee',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) DEFAULT NULL AFTER username;
 
 CREATE TABLE IF NOT EXISTS orders (
     id INT AUTO_INCREMENT PRIMARY KEY,

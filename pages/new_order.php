@@ -6,6 +6,7 @@
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/calc.php';
+require_once __DIR__ . '/../includes/notifications.php';
 requireLogin();
 
 $pdo    = getPDO();
@@ -40,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
         // Get brand discount
-        $brandStmt = $pdo->prepare('SELECT discount_percent FROM brands WHERE id = ?');
+        $brandStmt = $pdo->prepare('SELECT name, discount_percent FROM brands WHERE id = ?');
         $brandStmt->execute([$brandId]);
         $brand = $brandStmt->fetch();
         if (!$brand) { $errors[] = 'Brand not found.'; }
@@ -88,6 +89,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $notes, currentUser()['id'],
             ]);
             $orderId = $pdo->lastInsertId();
+            notifyAdminNewOrder([
+                'id' => (int)$orderId,
+                'product_name' => $product,
+                'brand_name' => (string)($brand['name'] ?? ''),
+                'status' => 'Draft',
+            ], currentUser()['username']);
             setFlash('success', 'Order #' . $orderId . ' created as Draft.');
             header('Location: ' . app_url('pages/order_detail.php') . '?id=' . $orderId);
             exit;
