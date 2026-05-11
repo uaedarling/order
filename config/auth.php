@@ -35,7 +35,7 @@ function requireAdmin(): void
 function currentUser(): array
 {
     return [
-        'id'       => $_SESSION['user_id'] ?? 0,
+        'id'       => (int)($_SESSION['user_id'] ?? 0),  // always int to prevent strict-comparison bugs
         'username' => $_SESSION['username'] ?? '',
         'role'     => $_SESSION['role'] ?? 'employee',
     ];
