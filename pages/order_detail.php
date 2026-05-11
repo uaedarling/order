@@ -5,6 +5,7 @@
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/calc.php';
+require_once __DIR__ . '/../includes/notifications.php';
 requireLogin();
 
 $pdo  = getPDO();
@@ -28,6 +29,10 @@ if (!$order) {
     header('Location: ' . app_url('pages/dashboard.php'));
     exit;
 }
+
+$creatorEmailStmt = $pdo->prepare("SELECT email FROM users WHERE id = ?");
+$creatorEmailStmt->execute([$order['created_by']]);
+$creatorEmail = (string)($creatorEmailStmt->fetchColumn() ?: '');
 
 // Non-admin employees can only view their own orders
 if (!isAdmin() && (int)$order['created_by'] !== $user['id']) {
@@ -77,6 +82,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$path) throw new RuntimeException('Customer PO upload is required.');
                 $pdo->prepare("UPDATE orders SET status='Requested', customer_po_path=? WHERE id=?")
                     ->execute([$path, $id]);
+                $notifyOrder = $order;
+                $notifyOrder['status'] = 'Requested';
+                notifyAdminOrderRequested($notifyOrder, $user['username']);
                 setFlash('success', 'Order submitted. Waiting for admin to process.');
                 break;
 
@@ -86,6 +94,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($order['status'] !== 'Requested') throw new RuntimeException('Invalid transition.');
                 $pdo->prepare("UPDATE orders SET status='Ordered' WHERE id=?")
                     ->execute([$id]);
+                $notifyOrder = $order;
+                $notifyOrder['status'] = 'Ordered';
+                notifyEmployeeOrderPlaced($notifyOrder, $creatorEmail);
                 setFlash('success', 'Order marked as Ordered.');
                 break;
 
@@ -99,6 +110,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$path) throw new RuntimeException('Supplier Invoice upload is required.');
                 $pdo->prepare("UPDATE orders SET status='In Transit (USA)', tracking_number=?, supplier_invoice_path=? WHERE id=?")
                     ->execute([$tracking, $path, $id]);
+                $notifyOrder = $order;
+                $notifyOrder['status'] = 'In Transit (USA)';
+                notifyEmployeeInTransit($notifyOrder, $creatorEmail, $tracking);
                 setFlash('success', 'Order marked as In Transit (USA).');
                 break;
 
@@ -109,6 +123,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$path) throw new RuntimeException('Forwarder document upload is required.');
                 $pdo->prepare("UPDATE orders SET status='At Forwarder', forwarder_doc_path=? WHERE id=?")
                     ->execute([$path, $id]);
+                $notifyOrder = $order;
+                $notifyOrder['status'] = 'At Forwarder';
+                notifyAdminAtForwarder($notifyOrder, (string)($order['created_by_name'] ?? 'Unknown Employee'));
                 setFlash('success', 'Order marked as At Forwarder.');
                 break;
 
@@ -117,6 +134,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($order['status'] !== 'At Forwarder') throw new RuntimeException('Invalid transition.');
                 $pdo->prepare("UPDATE orders SET status='Ship-Out Requested' WHERE id=?")
                     ->execute([$id]);
+                $notifyOrder = $order;
+                $notifyOrder['status'] = 'Ship-Out Requested';
+                notifyAdminShipOutRequested($notifyOrder, (string)($order['created_by_name'] ?? 'Unknown Employee'));
                 setFlash('success', 'Ship-Out requested. Admin has been notified.');
                 break;
 

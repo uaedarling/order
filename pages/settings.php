@@ -4,9 +4,19 @@
  */
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/mailer.php';
 requireAdmin();
 
 $pdo = getPDO();
+
+function saveSmtpSettings(PDO $pdo, array $values): void
+{
+    $stmt = $pdo->prepare("INSERT INTO settings (`key`, value) VALUES (?, ?)
+                           ON DUPLICATE KEY UPDATE value = ?");
+    foreach ($values as $key => $value) {
+        $stmt->execute([$key, $value, $value]);
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -43,6 +53,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ->execute([$json, $json]);
             setFlash('success', 'SNS anchors updated.');
         }
+    } elseif ($action === 'save_smtp' || $action === 'test_smtp') {
+        $smtpEnabled = isset($_POST['smtp_enabled']) ? '1' : '0';
+        $smtpHost    = trim($_POST['smtp_host'] ?? '');
+        $smtpPort    = (int)($_POST['smtp_port'] ?? 587);
+        $smtpEnc     = strtolower(trim($_POST['smtp_encryption'] ?? 'tls'));
+        $smtpUser    = trim($_POST['smtp_user'] ?? '');
+        $smtpPass    = (string)($_POST['smtp_pass'] ?? '');
+        $smtpFrom    = trim($_POST['smtp_from_name'] ?? 'ProcureERP');
+        $smtpFromEml = trim($_POST['smtp_from_email'] ?? '');
+
+        if ($smtpPort <= 0 || $smtpPort > 65535) {
+            setFlash('error', 'SMTP port must be between 1 and 65535.');
+            header('Location: ' . app_url('pages/settings.php'));
+            exit;
+        }
+        if (!in_array($smtpEnc, ['tls', 'ssl', 'none'], true)) {
+            $smtpEnc = 'tls';
+        }
+        if ($smtpFrom === '') {
+            $smtpFrom = 'ProcureERP';
+        }
+        if ($smtpFromEml !== '' && !filter_var($smtpFromEml, FILTER_VALIDATE_EMAIL)) {
+            setFlash('error', 'From Email must be a valid email address.');
+            header('Location: ' . app_url('pages/settings.php'));
+            exit;
+        }
+        if ($smtpPass === '') {
+            $smtpPass = (string)($pdo->query("SELECT value FROM settings WHERE `key`='smtp_pass'")->fetchColumn() ?: '');
+        }
+
+        saveSmtpSettings($pdo, [
+            'smtp_enabled' => $smtpEnabled,
+            'smtp_host' => $smtpHost,
+            'smtp_port' => (string)$smtpPort,
+            'smtp_encryption' => $smtpEnc,
+            'smtp_user' => $smtpUser,
+            'smtp_pass' => $smtpPass,
+            'smtp_from_name' => $smtpFrom,
+            'smtp_from_email' => $smtpFromEml,
+        ]);
+
+        if ($action === 'save_smtp') {
+            setFlash('success', 'SMTP settings updated.');
+        } else {
+            $meStmt = $pdo->prepare('SELECT email FROM users WHERE id = ?');
+            $meStmt->execute([currentUser()['id']]);
+            $adminEmail = trim((string)($meStmt->fetchColumn() ?: ''));
+
+            if ($adminEmail === '') {
+                setFlash('error', 'Your account has no email configured. Add your email in User Management first.');
+            } else {
+                $ok = sendMail(
+                    $adminEmail,
+                    '[ProcureERP] SMTP Test Email',
+                    '<p>This is a test email from ProcureERP SMTP settings.</p><p>If you received this, SMTP is working.</p>',
+                    "This is a test email from ProcureERP SMTP settings.\nIf you received this, SMTP is working."
+                );
+                setFlash($ok ? 'success' : 'error', $ok ? 'Test email sent successfully.' : 'Failed to send test email. Check SMTP settings.');
+            }
+        }
     }
 
     header('Location: ' . app_url('pages/settings.php'));
@@ -53,6 +123,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $usdToAed = $pdo->query("SELECT value FROM settings WHERE `key`='usd_to_aed'")->fetchColumn() ?: '3.6725';
 $snsJson  = $pdo->query("SELECT value FROM settings WHERE `key`='sns_anchors'")->fetchColumn();
 $anchors  = $snsJson ? json_decode($snsJson, true) : [];
+$smtpDefaults = [
+    'smtp_enabled' => '0',
+    'smtp_host' => '',
+    'smtp_port' => '587',
+    'smtp_encryption' => 'tls',
+    'smtp_user' => '',
+    'smtp_pass' => '',
+    'smtp_from_name' => 'ProcureERP',
+    'smtp_from_email' => '',
+];
+$smtpStmt = $pdo->query("SELECT `key`, value FROM settings WHERE `key` IN ('smtp_enabled','smtp_host','smtp_port','smtp_encryption','smtp_user','smtp_pass','smtp_from_name','smtp_from_email')");
+foreach (($smtpStmt ? $smtpStmt->fetchAll() : []) as $row) {
+    if (isset($smtpDefaults[$row['key']])) {
+        $smtpDefaults[$row['key']] = (string)$row['value'];
+    }
+}
+$smtpEnabled   = $smtpDefaults['smtp_enabled'];
+$smtpHost      = $smtpDefaults['smtp_host'];
+$smtpPort      = $smtpDefaults['smtp_port'];
+$smtpEnc       = $smtpDefaults['smtp_encryption'];
+$smtpUser      = $smtpDefaults['smtp_user'];
+$smtpPassSet   = $smtpDefaults['smtp_pass'] !== '';
+$smtpFromName  = $smtpDefaults['smtp_from_name'];
+$smtpFromEmail = $smtpDefaults['smtp_from_email'];
 
 $pageTitle = 'Settings';
 require_once __DIR__ . '/../includes/header.php';
@@ -134,6 +228,98 @@ require_once __DIR__ . '/../includes/header.php';
     </form>
   </div>
 
+  <!-- SMTP Configuration -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h3 class="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+      <i data-lucide="mail" class="w-5 h-5 text-indigo-600"></i>
+      SMTP Configuration
+    </h3>
+
+    <form method="POST" class="space-y-4">
+      <div class="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+        <div>
+          <p class="font-medium text-gray-800">Enable SMTP</p>
+          <p class="text-xs text-gray-500">Use SMTP instead of PHP mail().</p>
+        </div>
+        <label class="inline-flex items-center cursor-pointer">
+          <input type="checkbox" name="smtp_enabled" value="1" class="sr-only peer" <?= $smtpEnabled === '1' ? 'checked' : '' ?>>
+          <span class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-indigo-600 relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></span>
+        </label>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">SMTP Host</label>
+          <input type="text" name="smtp_host" value="<?= htmlspecialchars($smtpHost) ?>" placeholder="smtp.gmail.com"
+                 class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">SMTP Port</label>
+          <input type="number" name="smtp_port" value="<?= htmlspecialchars($smtpPort) ?>" min="1" max="65535"
+                 class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Encryption</label>
+          <select name="smtp_encryption"
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white">
+            <option value="tls" <?= $smtpEnc === 'tls' ? 'selected' : '' ?>>tls</option>
+            <option value="ssl" <?= $smtpEnc === 'ssl' ? 'selected' : '' ?>>ssl</option>
+            <option value="none" <?= $smtpEnc === 'none' ? 'selected' : '' ?>>none</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+          <input type="text" name="smtp_user" value="<?= htmlspecialchars($smtpUser) ?>" placeholder="mailer@company.com"
+                 class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+          <div class="relative">
+            <input type="password" id="smtp-pass" name="smtp_pass"
+                   aria-describedby="smtp-pass-help"
+                   placeholder="<?= $smtpPassSet ? '•••••••• (leave blank to keep existing password)' : '' ?>"
+                   class="w-full px-3 py-2.5 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+            <button type="button" onclick="toggleSmtpPassword()" class="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700" aria-label="Toggle password visibility">
+              <i data-lucide="eye" id="smtp-pass-eye-open" class="w-4 h-4"></i>
+              <i data-lucide="eye-off" id="smtp-pass-eye-closed" class="w-4 h-4 hidden"></i>
+            </button>
+          </div>
+          <p id="smtp-pass-help" class="mt-1 text-xs text-gray-500">
+            <?= $smtpPassSet ? 'Leave blank to keep the existing SMTP password.' : 'Set the SMTP password used for authentication.' ?>
+          </p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">From Name</label>
+          <input type="text" name="smtp_from_name" value="<?= htmlspecialchars($smtpFromName) ?>"
+                 class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">From Email</label>
+        <input type="text" name="smtp_from_email" value="<?= htmlspecialchars($smtpFromEmail) ?>" placeholder="no-reply@company.com"
+               class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+      </div>
+
+      <div class="flex flex-wrap gap-3">
+        <button type="submit" name="action" value="test_smtp"
+                class="px-5 py-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium rounded-lg transition-colors">
+          Send Test Email
+        </button>
+        <button type="submit" name="action" value="save_smtp"
+                class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors">
+          Save SMTP Settings
+        </button>
+      </div>
+    </form>
+  </div>
+
 </div>
 
 <script>
@@ -158,6 +344,22 @@ function addRow() {
     </td>`;
   tbody.appendChild(tr);
   lucide.createIcons();
+}
+
+function toggleSmtpPassword() {
+  const input = document.getElementById('smtp-pass');
+  const eyeOpen = document.getElementById('smtp-pass-eye-open');
+  const eyeClosed = document.getElementById('smtp-pass-eye-closed');
+  if (!input || !eyeOpen || !eyeClosed) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    eyeOpen.classList.add('hidden');
+    eyeClosed.classList.remove('hidden');
+  } else {
+    input.type = 'password';
+    eyeClosed.classList.add('hidden');
+    eyeOpen.classList.remove('hidden');
+  }
 }
 </script>
 
