@@ -168,7 +168,7 @@ $order = $stmt->fetch();
 // Fetch dealer email from brand (used for Gmail compose URL)
 $brandStmt = $pdo->prepare("SELECT dealer_email FROM brands WHERE id = ?");
 $brandStmt->execute([$order['brand_id']]);
-$dealerEmail = (string)($brandStmt->fetchColumn() ?: '');
+$dealerEmail = $brandStmt->fetchColumn() ?: '';
 
 // Build Gmail compose URL
 $poUrl   = app_url('uploads/' . $order['customer_po_path']);

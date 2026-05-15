@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS brands (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Ensure dealer_email exists on existing installs
 ALTER TABLE brands ADD COLUMN IF NOT EXISTS dealer_email VARCHAR(255) DEFAULT NULL AFTER name;
 
 CREATE TABLE IF NOT EXISTS users (
