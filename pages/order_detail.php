@@ -88,22 +88,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 setFlash('success', 'Order submitted. Waiting for admin to process.');
                 break;
 
-            // Requested → Ordered (Admin)
-            case 'mark_ordered':
+            // Requested → Email Sent to Dealer (Admin)
+            case 'email_sent':
                 requireAdmin();
                 if ($order['status'] !== 'Requested') throw new RuntimeException('Invalid transition.');
-                $pdo->prepare("UPDATE orders SET status='Ordered' WHERE id=?")
+                $pdo->prepare("UPDATE orders SET status='Email Sent to Dealer' WHERE id=?")
                     ->execute([$id]);
                 $notifyOrder = $order;
-                $notifyOrder['status'] = 'Ordered';
-                notifyEmployeeOrderPlaced($notifyOrder, $creatorEmail);
-                setFlash('success', 'Order marked as Ordered.');
+                $notifyOrder['status'] = 'Email Sent to Dealer';
+                notifyEmployeeEmailSentToDealer($notifyOrder, $creatorEmail);
+                setFlash('success', 'Email marked as sent to dealer.');
                 break;
 
-            // Ordered → In Transit (USA) (Admin)
+            // Email Sent to Dealer → Payment Done (Employee)
+            case 'payment_done':
+                if ($order['status'] !== 'Email Sent to Dealer') throw new RuntimeException('Invalid transition.');
+                $pdo->prepare("UPDATE orders SET status='Payment Done' WHERE id=?")
+                    ->execute([$id]);
+                $notifyOrder = $order;
+                $notifyOrder['status'] = 'Payment Done';
+                notifyAdminPaymentDone($notifyOrder, (string)($order['created_by_name'] ?? 'Unknown Employee'));
+                setFlash('success', 'Payment marked as done.');
+                break;
+
+            // Payment Done → In Transit (USA) (Admin)
             case 'mark_in_transit':
                 requireAdmin();
-                if ($order['status'] !== 'Ordered') throw new RuntimeException('Invalid transition.');
+                if ($order['status'] !== 'Payment Done') throw new RuntimeException('Invalid transition.');
                 $tracking = trim($_POST['tracking_number'] ?? '');
                 if (!$tracking) throw new RuntimeException('Tracking number is required.');
                 $path = handleUpload('supplier_invoice', 'inv');
@@ -154,6 +165,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $stmt->execute([$id]);
 $order = $stmt->fetch();
 
+// Fetch dealer email from brand (used for Gmail compose URL)
+$brandStmt = $pdo->prepare("SELECT dealer_email FROM brands WHERE id = ?");
+$brandStmt->execute([$order['brand_id']]);
+$dealerEmail = (string)($brandStmt->fetchColumn() ?: '');
+
+// Build Gmail compose URL
+$poUrl   = app_url('uploads/' . $order['customer_po_path']);
+$subject = urlencode('[PO] Order #' . $order['id'] . ' – ' . ($order['brand_name'] ?? '') . ' – ' . ($order['product_name'] ?? ''));
+$body    = urlencode(
+    "Dear Dealer,\n\n" .
+    "Please find the Purchase Order for the following item:\n\n" .
+    "Order #: " . $order['id'] . "\n" .
+    "Product: " . ($order['product_name'] ?? '') . "\n" .
+    "Brand: " . ($order['brand_name'] ?? '') . "\n" .
+    "Total: AED " . number_format((float)$order['total_aed'], 2) . "\n\n" .
+    "📎 Download PO: " . $poUrl . "\n\n" .
+    "(Please download and attach the PO file from the link above)\n\n" .
+    "Best regards"
+);
+$gmailUrl = "https://mail.google.com/mail/?view=cm" .
+    ($dealerEmail ? "&to=" . urlencode($dealerEmail) : "") .
+    "&su=" . $subject .
+    "&body=" . $body;
+
 // Recompute both carriers for comparison
 $usdToAed   = (float)($pdo->query("SELECT value FROM settings WHERE `key`='usd_to_aed'")->fetchColumn() ?: USD_TO_AED);
 $snsJson    = $pdo->query("SELECT value FROM settings WHERE `key`='sns_anchors'")->fetchColumn();
@@ -175,7 +210,8 @@ function statusBadge(string $status): string
     $map = [
         'Draft'               => 'bg-gray-100 text-gray-700',
         'Requested'           => 'bg-yellow-100 text-yellow-800',
-        'Ordered'             => 'bg-blue-100 text-blue-800',
+        'Email Sent to Dealer'=> 'bg-teal-100 text-teal-800',
+        'Payment Done'        => 'bg-green-100 text-green-800',
         'In Transit (USA)'    => 'bg-orange-100 text-orange-800',
         'At Forwarder'        => 'bg-purple-100 text-purple-800',
         'Ship-Out Requested'  => 'bg-red-100 text-red-800',
@@ -355,19 +391,62 @@ require_once __DIR__ . '/../includes/header.php';
       </button>
     </form>
 
-    <!-- Requested → Ordered (Admin) -->
+    <!-- Requested → Email Sent to Dealer (Admin) -->
     <?php elseif ($status === 'Requested' && isAdmin()): ?>
-    <form method="POST" class="space-y-3">
-      <input type="hidden" name="action" value="mark_ordered">
-      <p class="text-sm text-gray-600">Review the Customer PO and confirm this order has been placed with the supplier.</p>
-      <button type="submit"
-              class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">
-        Mark as Ordered
-      </button>
-    </form>
+    <div class="space-y-4">
+      <!-- Info banner -->
+      <div class="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+        <i data-lucide="info" class="w-5 h-5 flex-shrink-0 mt-0.5 text-blue-500"></i>
+        <div>
+          <p class="font-semibold mb-1">Step 1 — Send PO to Dealer</p>
+          <p>Click the button below to open Gmail with the order details pre-filled. Download the PO from the link in the email body, attach it, then send.</p>
+        </div>
+      </div>
 
-    <!-- Ordered → In Transit (USA) (Admin) -->
-    <?php elseif ($status === 'Ordered' && isAdmin()): ?>
+      <!-- Gmail button -->
+      <a href="<?= htmlspecialchars($gmailUrl) ?>" target="_blank"
+         class="inline-flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-red-400 text-red-600 font-semibold rounded-lg hover:bg-red-50 transition-colors w-full sm:w-auto justify-center sm:justify-start">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.910 1.528-1.145C21.69 2.28 24 3.434 24 5.457z" fill="#EA4335"/>
+        </svg>
+        Open Gmail to Email Dealer
+      </a>
+
+      <!-- Step 2 -->
+      <div class="border-t border-gray-200 pt-4">
+        <p class="text-sm text-gray-600 mb-3">
+          <strong>Step 2 —</strong> After sending the email to the dealer, click below to update the order status.
+        </p>
+        <form method="POST">
+          <input type="hidden" name="action" value="email_sent">
+          <button type="submit"
+                  class="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors flex items-center gap-2">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            Mark Email Sent to Dealer
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Email Sent to Dealer → Payment Done (Employee) -->
+    <?php elseif ($status === 'Email Sent to Dealer' && !isAdmin()): ?>
+    <div class="space-y-3">
+      <div class="flex items-start gap-3 p-4 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-800">
+        <i data-lucide="mail-check" class="w-5 h-5 flex-shrink-0 mt-0.5 text-teal-600"></i>
+        <p>The admin has sent the PO to the dealer. Once you have completed the payment, click below to proceed.</p>
+      </div>
+      <form method="POST">
+        <input type="hidden" name="action" value="payment_done">
+        <button type="submit"
+                class="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors flex items-center gap-2">
+          <i data-lucide="credit-card" class="w-4 h-4"></i>
+          Mark Payment Done
+        </button>
+      </form>
+    </div>
+
+    <!-- Payment Done → In Transit (USA) (Admin) -->
+    <?php elseif ($status === 'Payment Done' && isAdmin()): ?>
     <form method="POST" enctype="multipart/form-data" class="space-y-3">
       <input type="hidden" name="action" value="mark_in_transit">
       <div>
@@ -424,20 +503,25 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 
     <?php elseif ($status === 'Requested'): ?>
-    <!-- Employee waiting for admin to mark as Ordered -->
+    <!-- Employee waiting for admin to send email to dealer -->
     <div class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
       <i data-lucide="clock" class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500"></i>
       <p>Your request has been submitted with the Customer PO.
-         Waiting for admin to review and mark this order as <strong>Ordered</strong>.</p>
+         Waiting for admin to send the PO email to the dealer.</p>
     </div>
 
-    <?php elseif ($status === 'Ordered'): ?>
-    <!-- Employee waiting for admin to add tracking / invoice -->
+    <?php elseif ($status === 'Email Sent to Dealer'): ?>
+    <!-- Admin waiting for employee to confirm payment -->
     <div class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
       <i data-lucide="clock" class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500"></i>
-      <p>Order has been placed with the supplier. Waiting for admin to enter the
-         supplier tracking number and upload the invoice to move to
-         <strong>In Transit (USA)</strong>.</p>
+      <p>Email has been sent to the dealer. Waiting for the employee to confirm payment.</p>
+    </div>
+
+    <?php elseif ($status === 'Payment Done'): ?>
+    <!-- Employee waiting for admin to enter tracking / invoice -->
+    <div class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+      <i data-lucide="clock" class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500"></i>
+      <p>Payment confirmed. Waiting for admin to enter tracking number and upload invoice.</p>
     </div>
 
     <?php elseif ($status === 'In Transit (USA)'): ?>

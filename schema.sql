@@ -30,9 +30,12 @@ INSERT INTO settings (`key`, value) VALUES ('smtp_from_email', '')
 CREATE TABLE IF NOT EXISTS brands (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
+    dealer_email VARCHAR(255) DEFAULT NULL,
     discount_percent DECIMAL(5,2) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS dealer_email VARCHAR(255) DEFAULT NULL AFTER name;
 
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -60,7 +63,7 @@ CREATE TABLE IF NOT EXISTS orders (
     vat_aed DECIMAL(10,2) NOT NULL,
     customs_aed DECIMAL(10,2) NOT NULL DEFAULT 0,
     total_aed DECIMAL(10,2) NOT NULL,
-    status ENUM('Draft','Requested','Ordered','In Transit (USA)','At Forwarder','Ship-Out Requested') DEFAULT 'Draft',
+    status ENUM('Draft','Requested','Email Sent to Dealer','Payment Done','In Transit (USA)','At Forwarder','Ship-Out Requested') DEFAULT 'Draft',
     tracking_number VARCHAR(200),
     customer_po_path VARCHAR(500),
     supplier_invoice_path VARCHAR(500),
@@ -72,3 +75,13 @@ CREATE TABLE IF NOT EXISTS orders (
     FOREIGN KEY (brand_id) REFERENCES brands(id),
     FOREIGN KEY (created_by) REFERENCES users(id)
 );
+
+ALTER TABLE orders MODIFY COLUMN status ENUM(
+  'Draft',
+  'Requested',
+  'Email Sent to Dealer',
+  'Payment Done',
+  'In Transit (USA)',
+  'At Forwarder',
+  'Ship-Out Requested'
+) DEFAULT 'Draft';

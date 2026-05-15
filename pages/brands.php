@@ -13,27 +13,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'add') {
-        $name    = trim($_POST['name'] ?? '');
-        $discount = (float)($_POST['discount_percent'] ?? 0);
+        $name        = trim($_POST['name'] ?? '');
+        $dealerEmail = trim($_POST['dealer_email'] ?? '');
+        $discount    = (float)($_POST['discount_percent'] ?? 0);
         if ($name === '') {
             setFlash('error', 'Brand name is required.');
         } elseif ($discount < 0 || $discount > 100) {
             setFlash('error', 'Discount must be between 0 and 100.');
         } else {
-            $pdo->prepare('INSERT INTO brands (name, discount_percent) VALUES (?, ?)')
-                ->execute([$name, $discount]);
+            $pdo->prepare('INSERT INTO brands (name, dealer_email, discount_percent) VALUES (?, ?, ?)')
+                ->execute([$name, $dealerEmail ?: null, $discount]);
             setFlash('success', "Brand \"$name\" added.");
         }
 
     } elseif ($action === 'edit') {
-        $bid     = (int)($_POST['id'] ?? 0);
-        $name    = trim($_POST['name'] ?? '');
-        $discount = (float)($_POST['discount_percent'] ?? 0);
+        $bid         = (int)($_POST['id'] ?? 0);
+        $name        = trim($_POST['name'] ?? '');
+        $dealerEmail = trim($_POST['dealer_email'] ?? '');
+        $discount    = (float)($_POST['discount_percent'] ?? 0);
         if ($name === '' || $bid <= 0) {
             setFlash('error', 'Invalid input.');
         } else {
-            $pdo->prepare('UPDATE brands SET name=?, discount_percent=? WHERE id=?')
-                ->execute([$name, $discount, $bid]);
+            $pdo->prepare('UPDATE brands SET name=?, dealer_email=?, discount_percent=? WHERE id=?')
+                ->execute([$name, $dealerEmail ?: null, $discount, $bid]);
             setFlash('success', 'Brand updated.');
         }
 
@@ -76,6 +78,12 @@ require_once __DIR__ . '/../includes/header.php';
                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                placeholder="e.g. Apple">
       </div>
+      <div class="flex-1 min-w-[180px]">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Dealer Email</label>
+        <input type="email" name="dealer_email"
+               class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+               placeholder="e.g. dealer@apple.com">
+      </div>
       <div class="w-36">
         <label class="block text-sm font-medium text-gray-700 mb-1">Discount %</label>
         <input type="number" name="discount_percent" step="0.01" min="0" max="100" value="0"
@@ -106,6 +114,7 @@ require_once __DIR__ . '/../includes/header.php';
           <tr>
             <th class="px-6 py-3 text-left font-semibold text-gray-600">#</th>
             <th class="px-6 py-3 text-left font-semibold text-gray-600">Name</th>
+            <th class="px-6 py-3 text-left font-semibold text-gray-600">Dealer Email</th>
             <th class="px-6 py-3 text-left font-semibold text-gray-600">Discount %</th>
             <th class="px-6 py-3 text-left font-semibold text-gray-600">Created</th>
             <th class="px-6 py-3"></th>
@@ -118,13 +127,16 @@ require_once __DIR__ . '/../includes/header.php';
             <td class="px-6 py-3">
               <span id="name-display-<?= $b['id'] ?>" class="font-medium text-gray-800"><?= htmlspecialchars($b['name']) ?></span>
             </td>
+            <td class="px-6 py-3 text-gray-600">
+              <?= $b['dealer_email'] ? htmlspecialchars($b['dealer_email']) : '—' ?>
+            </td>
             <td class="px-6 py-3">
               <span id="disc-display-<?= $b['id'] ?>"><?= number_format((float)$b['discount_percent'], 2) ?>%</span>
             </td>
             <td class="px-6 py-3 text-gray-500"><?= date('d M Y', strtotime($b['created_at'])) ?></td>
             <td class="px-6 py-3">
               <div class="flex items-center gap-2">
-                <button onclick="startEdit(<?= (int)$b['id'] ?>, <?= htmlspecialchars(json_encode($b['name'])) ?>, <?= (float)$b['discount_percent'] ?>)"
+                <button onclick="startEdit(<?= (int)$b['id'] ?>, <?= htmlspecialchars(json_encode($b['name'])) ?>, <?= (float)$b['discount_percent'] ?>, <?= htmlspecialchars(json_encode($b['dealer_email'] ?? '')) ?>)"
                         class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors">
                   <i data-lucide="pencil" class="w-4 h-4"></i>
                 </button>
@@ -160,6 +172,12 @@ require_once __DIR__ . '/../includes/header.php';
                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
       </div>
       <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Dealer Email</label>
+        <input type="email" name="dealer_email" id="edit-dealer-email"
+               class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+               placeholder="e.g. dealer@apple.com">
+      </div>
+      <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Discount %</label>
         <input type="number" name="discount_percent" id="edit-discount" step="0.01" min="0" max="100"
                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
@@ -179,10 +197,11 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
-function startEdit(id, name, discount) {
-  document.getElementById('edit-id').value      = id;
-  document.getElementById('edit-name').value    = name;
-  document.getElementById('edit-discount').value = discount;
+function startEdit(id, name, discount, dealerEmail) {
+  document.getElementById('edit-id').value           = id;
+  document.getElementById('edit-name').value         = name;
+  document.getElementById('edit-discount').value     = discount;
+  document.getElementById('edit-dealer-email').value = dealerEmail || '';
   document.getElementById('edit-modal').classList.remove('hidden');
 }
 function closeModal() {
