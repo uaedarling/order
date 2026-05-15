@@ -61,6 +61,25 @@ function notifyAdminShipOutRequested(array $order, string $creatorName): void
     );
 }
 
+function notifyEmployeeEmailSentToDealer(array $order, string $employeeEmail): void
+{
+    notifyEmployee(
+        $employeeEmail,
+        '[ProcureERP] Order #' . (int)($order['id'] ?? 0) . ' – Action Required',
+        buildOrderEmailBody($order, 'The admin has sent the PO to the dealer. Please arrange payment and then mark Payment Done on the order.'),
+        buildOrderEmailText($order, 'The admin has sent the PO to the dealer. Please arrange payment and then mark Payment Done on the order.')
+    );
+}
+
+function notifyAdminPaymentDone(array $order, string $creatorName): void
+{
+    notifyAdmins(
+        '[ProcureERP] Order #' . (int)($order['id'] ?? 0) . ' – Action Required',
+        buildOrderEmailBody($order, $creatorName . ' confirmed payment is done. Please enter the tracking number and upload the supplier invoice.'),
+        buildOrderEmailText($order, $creatorName . ' confirmed payment is done. Please enter the tracking number and upload the supplier invoice.')
+    );
+}
+
 function notifyAdmins(string $subject, string $bodyHtml, string $bodyText): void
 {
     foreach (getAdminEmails() as $email) {

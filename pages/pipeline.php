@@ -10,12 +10,13 @@ $pdo  = getPDO();
 $user = currentUser();
 
 $stages = [
-    ['status' => 'Draft', 'label' => 'Draft', 'header' => 'bg-gray-100 text-gray-700 border-gray-200'],
-    ['status' => 'Requested', 'label' => 'Requested', 'header' => 'bg-yellow-100 text-yellow-800 border-yellow-200'],
-    ['status' => 'Ordered', 'label' => 'Ordered', 'header' => 'bg-blue-100 text-blue-800 border-blue-200'],
-    ['status' => 'In Transit (USA)', 'label' => 'In Transit USA', 'header' => 'bg-orange-100 text-orange-800 border-orange-200'],
-    ['status' => 'At Forwarder', 'label' => 'At Forwarder', 'header' => 'bg-purple-100 text-purple-800 border-purple-200'],
-    ['status' => 'Ship-Out Requested', 'label' => 'Ship-Out Requested', 'header' => 'bg-red-100 text-red-800 border-red-200'],
+    ['status' => 'Draft',                'label' => 'Draft',                'header' => 'bg-gray-100 text-gray-700 border-gray-200'],
+    ['status' => 'Requested',            'label' => 'Requested',            'header' => 'bg-yellow-100 text-yellow-800 border-yellow-200'],
+    ['status' => 'Email Sent to Dealer', 'label' => 'Email Sent to Dealer', 'header' => 'bg-teal-100 text-teal-800 border-teal-200'],
+    ['status' => 'Payment Done',         'label' => 'Payment Done',         'header' => 'bg-green-100 text-green-800 border-green-200'],
+    ['status' => 'In Transit (USA)',     'label' => 'In Transit USA',       'header' => 'bg-orange-100 text-orange-800 border-orange-200'],
+    ['status' => 'At Forwarder',         'label' => 'At Forwarder',         'header' => 'bg-purple-100 text-purple-800 border-purple-200'],
+    ['status' => 'Ship-Out Requested',   'label' => 'Ship-Out Requested',   'header' => 'bg-red-100 text-red-800 border-red-200'],
 ];
 
 $params = [];

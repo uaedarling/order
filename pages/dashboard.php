@@ -16,13 +16,13 @@ $where  = '';
 
 if ($filter === 'pending') {
     if (isAdmin()) {
-        $where = "WHERE o.status IN ('Requested','Ordered','Ship-Out Requested')";
+        $where = "WHERE o.status IN ('Requested','Email Sent to Dealer','Payment Done','Ship-Out Requested')";
     } else {
         $where = "WHERE o.status IN ('Draft','In Transit (USA)','At Forwarder') AND o.created_by = ?";
         $params[] = $user['id'];
     }
 } elseif ($filter === 'archive') {
-    $where = "WHERE o.status IN ('Ordered','In Transit (USA)','At Forwarder','Ship-Out Requested')";
+    $where = "WHERE o.status IN ('Email Sent to Dealer','Payment Done','In Transit (USA)','At Forwarder','Ship-Out Requested')";
 } elseif ($filter === 'ship_out') {
     $where = "WHERE o.status = 'Ship-Out Requested'";
 } elseif (!isAdmin()) {
@@ -48,7 +48,8 @@ function statusBadge(string $status): string
     $map = [
         'Draft'               => 'bg-gray-100 text-gray-700',
         'Requested'           => 'bg-yellow-100 text-yellow-800',
-        'Ordered'             => 'bg-blue-100 text-blue-800',
+        'Email Sent to Dealer'=> 'bg-teal-100 text-teal-800',
+        'Payment Done'        => 'bg-green-100 text-green-800',
         'In Transit (USA)'    => 'bg-orange-100 text-orange-800',
         'At Forwarder'        => 'bg-purple-100 text-purple-800',
         'Ship-Out Requested'  => 'bg-red-100 text-red-800',
